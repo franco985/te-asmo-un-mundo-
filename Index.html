@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Te Amo Un Mundo</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #030106;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .container {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    canvas {
+      background: transparent;
+      display: block;
+    }
+
+    .bg-glow {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, rgba(255, 30, 86, 0.08) 0%, rgba(3, 1, 6, 0.95) 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="bg-glow"></div>
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <script>
+    // @ts-nocheck
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    let width = 0;
+    let height = 0;
+
+    function resize() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width;
+      canvas.height = height;
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+
+    let phase = 1;
+
+    // --- FASE 1: TEXTO TRAZADO ---
+    const textString = "Te amo un mundo";
+    let textProgress = 0;
+    const textSpeed = 0.008;
+
+    // --- FASE 2: CORAZÓN Y TULIPANES ---
+    let drawProgress = 0;
+    const drawSpeed = 0.0035;
+
+    // Ecuación del corazón
+    function heartMath(t = 0) {
+      const x = 16 * Math.pow(Math.sin(t), 3);
+      const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+      return { x, y };
+    }
+
+    // Estructura estilizada del tulipán
+    function getTulipPaths(side = 'left') {
+      const dir = side === 'left' ? -1 : 1;
+      const centerX = width / 2 + dir * Math.min(width, height) * 0.34;
+      const centerY = height / 2 + 30;
+
+      // 1. Tallo
+      const stem = [];
+      for (let i = 0; i <= 60; i++) {
+        const t = i / 60;
+        const x = centerX + Math.sin(t * Math.PI) * 18 * dir;
+        const y = centerY + 140 - t * 150;
+        stem.push({ x, y });
+      }
+
+      // 2. Hojas
+      const leaf1 = [];
+      for (let i = 0; i <= 40; i++) {
+        const t = i / 40;
+        const x = centerX + (t * 40 * dir) + Math.sin(t * Math.PI) * 15 * dir;
+        const y = centerY + 120 - Math.sin(t * Math.PI) * 45 - t * 25;
+        leaf1.push({ x, y });
+      }
+
+      const leaf2 = [];
+      for (let i = 0; i <= 40; i++) {
+        const t = i / 40;
+        const x = centerX - (t * 25 * dir) - Math.sin(t * Math.PI) * 10 * dir;
+        const y = centerY + 90 - Math.sin(t * Math.PI) * 35 - t * 20;
+        leaf2.push({ x, y });
+      }
+
+      // 3. Pétalos
+      const petalBaseY = centerY - 10;
+      
+      const leftPetal = [];
+      for (let i = 0; i <= 40; i++) {
+        const t = i / 40;
+        const x = centerX - (25 * Math.sin(t * Math.PI)) - (t * 8 * dir);
+        const y = petalBaseY - (t * 55) + Math.pow(t, 2) * 5;
+        leftPetal.push({ x, y });
+      }
+
+      const rightPetal = [];
+      for (let i = 0; i <= 40; i++) {
+        const t = i / 40;
+        const x = centerX + (25 * Math.sin(t * Math.PI)) + (t * 8 * dir);
+        const y = petalBaseY - (t * 55) + Math.pow(t, 2) * 5;
+        rightPetal.push({ x, y });
+      }
+
+      const centerPetal = [];
+      for (let i = 0; i <= 40; i++) {
+        const t = i / 40;
+        const angle = (t - 0.5) * Math.PI;
+        const x = centerX + Math.sin(angle) * 18;
+        const y = petalBaseY - 30 - Math.cos(angle) * 35;
+        centerPetal.push({ x, y });
+      }
+
+      return { stem, leaf1, leaf2, leftPetal, rightPetal, centerPetal };
+    }
+
+    // Dibujador de líneas punto por punto
+    function drawPartialPath(points = [], progress = 0, color = '#ffffff', strokeWidth = 1, glow = 0) {
+      if (points.length < 2 || progress <= 0) return;
+
+      const maxIdx = Math.floor((points.length - 1) * Math.min(progress, 1));
+      if (maxIdx < 1) return;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = strokeWidth;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      if (glow > 0) {
+        ctx.shadowColor = color;
+        ctx.shadowBlur = glow;
+      }
+
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i <= maxIdx; i++) {
+        ctx.lineTo(points[i].x, points[i].y);
+      }
+      ctx.stroke();
+
+      if (progress < 1) {
+        const tip = points[maxIdx];
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = '#ffffff';
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.arc(tip.x, tip.y, strokeWidth * 1.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    // Ciclo principal
+    function animate() {
+      ctx.clearRect(0, 0, width, height);
+
+      const minDim = Math.min(width, height);
+      const textY = height / 2 - minDim * 0.33;
+
+      // --- FASE 1: TRAZO DEL TEXTO ---
+      if (phase === 1) {
+        textProgress += textSpeed;
+        if (textProgress >= 1) {
+          textProgress = 1;
+          phase = 2;
+        }
+      }
+
+      ctx.save();
+      const fontSize = Math.max(26, Math.min(width * 0.07, 48));
+      ctx.font = `bold ${fontSize}px 'Segoe UI', cursive, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      const textWidth = ctx.measureText(textString).width;
+      const startX = width / 2 - textWidth / 2;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, (width / 2 - textWidth / 2 - 20) + (textWidth + 40) * textProgress, height);
+      ctx.clip();
+
+      ctx.strokeStyle = '#ff3366';
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = '#ff0055';
+      ctx.shadowBlur = 15;
+      ctx.strokeText(textString, width / 2, textY);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = '#ff3366';
+      ctx.shadowBlur = 20;
+      ctx.fillText(textString, width / 2, textY);
+      ctx.restore();
+
+      if (textProgress < 1) {
+        const currentX = startX + textWidth * textProgress;
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = '#ffffff';
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.arc(currentX, textY, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // --- FASE 2: TRAZO SIMULTÁNEO DE CORAZÓN Y TULIPANES ---
+      if (phase === 2) {
+        if (drawProgress < 1) {
+          drawProgress += drawSpeed;
+          if (drawProgress > 1) drawProgress = 1;
+        }
+
+        const heartCenterX = width / 2;
+        const heartCenterY = height / 2 + 30;
+        const numLayers = 16;
+        const baseScale = minDim * 0.009;
+
+        // 1. CORAZÓN CONCÉNTRICO
+        for (let layer = 1; layer <= numLayers; layer++) {
+          const layerProgress = Math.max(0, Math.min(1, (drawProgress * numLayers) - (layer - 1)));
+          if (layerProgress <= 0) continue;
+
+          const layerScale = baseScale * (layer / numLayers);
+          const points = [];
+          const totalPoints = 80;
+
+          for (let i = 0; i <= totalPoints; i++) {
+            const t = (i / totalPoints) * Math.PI * 2;
+            const pos = heartMath(t);
+            points.push({
+              x: heartCenterX + pos.x * layerScale,
+              y: heartCenterY + pos.y * layerScale
+            });
+          }
+
+          const alpha = 0.3 + 0.7 * (layer / numLayers);
+          const strokeWidth = layer === numLayers ? 2.5 : 1.5;
+          drawPartialPath(points, layerProgress, `rgba(255, 30, 86, ${alpha})`, strokeWidth, 12);
+        }
+
+        // 2. TULIPANES
+        ['left', 'right'].forEach(side => {
+          const tulip = getTulipPaths(side);
+
+          drawPartialPath(tulip.stem, drawProgress, '#2ed573', 2.5, 10);
+          drawPartialPath(tulip.leaf1, drawProgress, '#26af5f', 2, 8);
+          drawPartialPath(tulip.leaf2, drawProgress, '#26af5f', 2, 8);
+          drawPartialPath(tulip.leftPetal, drawProgress, '#ff3366', 2.5, 12);
+          drawPartialPath(tulip.rightPetal, drawProgress, '#ff3366', 2.5, 12);
+          drawPartialPath(tulip.centerPetal, drawProgress, '#ff6b81', 2, 10);
+        });
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+  </script>
+</body>
+</html>
